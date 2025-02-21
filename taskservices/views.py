@@ -26,13 +26,9 @@ def send_task_assignment_email(sender, instance, created, **kwargs):
         subject = "New Task Assigned to You"
         message = f"""
         Hello {instance.assigned_to.first_name} {instance.assigned_to.last_name},
-
         You have been assigned a new task: '{instance.title}'.
-
         Description: {instance.description}
-
         Please log in to your dashboard to view more details.
-
         Best Regards,
         Your Team
         """
