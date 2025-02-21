@@ -8,9 +8,12 @@ from .models import Task
 from django.core.mail import send_mail
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+import json
+import http.client
+from django.db.models.signals import post_save
+import environ
 
 # Create your views here.
-
 class TaskCreate(APIView):
     def post(self, request):
         serializer = TaskSerializer(data=request.data)
@@ -19,12 +22,55 @@ class TaskCreate(APIView):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
+def send_email_via_sendgrid(to_email, subject, body):
+    """Send an email using the SendGrid API."""
+    # Set up the connection
+    conn = http.client.HTTPSConnection("rapidprod-sendgrid-v1.p.rapidapi.com")
+
+    # Define the payload
+    payload = json.dumps({
+        "personalizations": [
+            {
+                "to": [{"email": to_email}],
+                "subject": subject
+            }
+        ],
+        "from": {"email": "erasmuschawey12345@gmail.com"}, 
+        "content": [
+            {
+                "type": "text/plain",
+                "value": body
+            }
+        ]
+    })
+
+    # Define the headers
+    headers = {
+        'x-rapidapi-key': "8febfb0c74mshf943a1a3aec2a46p10a91ejsnfc068c5acb5e", 
+        'x-rapidapi-host': "rapidprod-sendgrid-v1.p.rapidapi.com",
+        'Content-Type': "application/json"
+    }
+
+    # Send the request
+    try:
+        conn.request("POST", "/mail/send", payload, headers)
+        res = conn.getresponse()
+        data = res.read()
+        print(f"API Response Status: {res.status}")
+        print(f"API Response Data: {data.decode('utf-8')}")
+    except Exception as e:
+        print(f"Failed to send email: {e}")
+    finally:
+        conn.close()
+        
+    
+
 @receiver(post_save, sender=Task)
 def send_task_assignment_email(sender, instance, created, **kwargs):
-    """Send an email when a task is assigned to a user."""
+    """Send an email when a task is assigned to a user using SendGrid API."""
     if created and instance.assigned_to:
         subject = "New Task Assigned to You"
-        message = f"""
+        body = f"""
         Hello {instance.assigned_to.first_name} {instance.assigned_to.last_name},
         You have been assigned a new task: '{instance.title}'.
         Description: {instance.description}
@@ -32,16 +78,14 @@ def send_task_assignment_email(sender, instance, created, **kwargs):
         Best Regards,
         Your Team
         """
-        recipient_email = instance.assigned_to.email
 
-        # Send the email notification
-        send_mail(
-            subject,
-            message,
-            'erasmuschawey12345@gmail.com',  
-            [recipient_email],
-            fail_silently=False,
-        )    
+        # Send the email using SendGrid API
+        send_email_via_sendgrid(
+            to_email=instance.assigned_to.email,
+            subject=subject,
+            body=body
+        )
+
 
 class TaskList(APIView):
     def get(self, request):
