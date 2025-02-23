@@ -3,6 +3,8 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework import status, generics
 from .serializers import TaskSerializer
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.permissions import IsAuthenticated,IsAuthenticatedOrReadOnly,IsAdminUser
 from rest_framework.views import APIView
 from .models import Task
 from django.core.mail import send_mail
@@ -12,9 +14,13 @@ import json
 import http.client
 from django.db.models.signals import post_save
 import environ
-
+from rest_framework.pagination import PageNumberPagination
 # Create your views here.
+
+
 class TaskCreate(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated,IsAdminUser]
     def post(self, request):
         serializer = TaskSerializer(data=request.data)
         if serializer.is_valid():
@@ -88,18 +94,34 @@ def send_task_assignment_email(sender, instance, created, **kwargs):
 
 
 class TaskList(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticatedOrReadOnly]
+    
     def get(self, request):
         tasks = Task.objects.all()
-        serializer = TaskSerializer(tasks, many=True)
-        return Response(serializer.data)
+        paginator = PageNumberPagination()
+        paginator.page_size = 10
+        paginated_tasks = paginator.paginate_queryset(tasks, request)
+        serializer = TaskSerializer(paginated_tasks, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
 class TaskDetail(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
     def get(self, request, pk):
+        user = request.user
         task = get_object_or_404(Task, pk=pk) 
+        if not user.is_staff and task.user != user:
+            return Response(
+                {"message": "You are not allowed to view this task"},
+                status=status.HTTP_403_FORBIDDEN
+            )
         serializer = TaskSerializer(task)
         return Response(serializer.data)
 
 class TaskUpdate(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticatedOrReadOnly,IsAdminUser]
     def put(self, request, pk):
         task = get_object_or_404(Task, pk=pk)  
         serializer = TaskSerializer(task, data=request.data)
@@ -109,7 +131,29 @@ class TaskUpdate(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class TaskDelete(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticatedOrReadOnly,IsAdminUser]
     def delete(self, request, pk):
         task = get_object_or_404(Task, pk=pk)  
         task.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+    
+class TaskListByUser(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsAdminUser] 
+
+    def get(self, request, user_id):
+        tasks = Task.objects.filter(user_id=user_id)  
+        paginator = PageNumberPagination()
+        paginator.page_size = 10
+        paginated_tasks = paginator.paginate_queryset(tasks, request)
+        serializer = TaskSerializer(paginated_tasks, many=True)
+        return paginator.get_paginated_response(serializer.data)    
+    
+@api_view(['GET'])
+def search_task(request):
+    if request.method == 'GET':
+        title = request.query_params.get('title')
+        tasks = Task.objects.filter(title__icontains=title)
+        serializer = TaskSerializer(tasks, many=True)
+        return Response(serializer.data)    
