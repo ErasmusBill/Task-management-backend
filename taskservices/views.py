@@ -157,3 +157,7 @@ def search_task(request):
         tasks = Task.objects.filter(title__icontains=title)
         serializer = TaskSerializer(tasks, many=True)
         return Response(serializer.data)    
+    
+@api_view(['GET'])
+def get_status_choices(request):
+    return Response(dict(Task.STATUS_CHOICES))    

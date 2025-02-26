@@ -7,6 +7,6 @@ urlpatterns = [
     path('task-detail/<int:pk>/', views.TaskDetail.as_view(), name='task-detail'),
     path('task-update/<int:pk>/', views.TaskUpdate.as_view(), name='task-update'),
     path('task-delete/<int:pk>/', views.TaskDelete.as_view(), name='task-delete'),
-    path('tasks/user/<int:user_id>/', views.TaskListByUser.as_view(), name='task-list-by-user'),
+    path('get_status_choices/',views.get_status_choices,name='get_status_choices'),
     
 ]

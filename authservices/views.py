@@ -1,13 +1,23 @@
 from django.shortcuts import render
 from rest_framework.response import Response
+from rest_framework import permissions
 from rest_framework.views import APIView
 from rest_framework import generics, status
-from .serializers import UserSerializer,ChangePasswordSerializer
+from .serializers import UserSerializer, ChangePasswordSerializer
+from django.contrib.auth.models import User
 from django.contrib.auth import authenticate,login
 from rest_framework_simplejwt.tokens import RefreshToken
 
 
 # Create your views here.
+class UserListView(generics.ListAPIView):
+    """
+    API endpoint to list all users for task assignment
+    """
+    queryset = User.objects.all().order_by('username')
+    serializer_class = UserSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
 class UserCreate(APIView):
     def post(self, request):
         serializer = UserSerializer(data=request.data)
@@ -43,16 +53,21 @@ class UserLogin(APIView):
                             status=status.HTTP_200_OK
                         ) 
 
+
 class Logout(APIView):
     def post(self, request):
         refresh_token = request.data.get('refresh_token')
+        if not refresh_token:
+            return Response({'error': 'Refresh token is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
         try:
             token = RefreshToken(refresh_token)
             token.blacklist()
             return Response({'message': 'Logout successful'}, status=status.HTTP_205_RESET_CONTENT)
-        except:
-            return Response({'message': 'Invalid refresh token'}, status=status.HTTP_400_BAD_REQUEST)
-    
+        except Exception as e:
+        
+            #print(f"Logout error: {str(e)}")
+            return Response({'error': 'Invalid refresh token'}, status=status.HTTP_400_BAD_REQUEST)        
 class ChangePasswordView(APIView):
     def post(self, request):
         user = request.user
