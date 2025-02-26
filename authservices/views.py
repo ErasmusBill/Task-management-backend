@@ -6,9 +6,10 @@ from rest_framework import generics, status
 from .serializers import UserSerializer, ChangePasswordSerializer
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate,login
+from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
 
-
+User = get_user_model()
 # Create your views here.
 class UserListView(generics.ListAPIView):
     """
@@ -16,7 +17,7 @@ class UserListView(generics.ListAPIView):
     """
     queryset = User.objects.all().order_by('username')
     serializer_class = UserSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    #permission_classes = [permissions.IsAuthenticated]
     
 class UserCreate(APIView):
     def post(self, request):
@@ -82,6 +83,11 @@ class ChangePasswordView(APIView):
     
     
 class UpdateProfileView(APIView):
+    def get(self, request):
+        user = request.user
+        serializer = UserSerializer(user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
     def put(self, request):
         user = request.user
         serializer = UserSerializer(user, data=request.data, partial=True)

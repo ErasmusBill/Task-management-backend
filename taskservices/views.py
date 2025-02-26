@@ -17,17 +17,22 @@ import environ
 from rest_framework.pagination import PageNumberPagination
 # Create your views here.
 
-
 class TaskCreate(APIView):
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated,IsAdminUser]
+    permission_classes = [IsAuthenticated, IsAdminUser]
+
     def post(self, request):
+        # Ensure the user is authenticated
+        if not request.user.is_authenticated:
+            return Response({'error': 'Failed to retrieve user information. Please log in again.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        # Proceed with task creation
         serializer = TaskSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            serializer.save(created_by=request.user)  # Automatically set created_by to the authenticated user
             return Response(serializer.data, status=status.HTTP_201_CREATED)
+        
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
 def send_email_via_sendgrid(to_email, subject, body):
     """Send an email using the SendGrid API."""
     # Set up the connection
@@ -140,7 +145,7 @@ class TaskDelete(APIView):
     
 class TaskListByUser(APIView):
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated, IsAdminUser] 
+    #permission_classes = [IsAuthenticated, IsAdminUser] 
 
     def get(self, request, user_id):
         tasks = Task.objects.filter(user_id=user_id)  

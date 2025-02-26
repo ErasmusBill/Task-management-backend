@@ -11,7 +11,7 @@ class Task(models.Model):
     ]
 
     title = models.CharField(max_length=200)
-    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_tasks')
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_tasks',blank=True, null=True)
     assigned_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_tasks')  
     description = models.TextField(blank=True, null=True)  
     created_at = models.DateTimeField(auto_now_add=True)
