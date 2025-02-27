@@ -126,7 +126,7 @@ class TaskDetail(APIView):
 
 class TaskUpdate(APIView):
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticatedOrReadOnly,IsAdminUser]
+    #permission_classes = [IsAuthenticatedOrReadOnly,IsAdminUser]
     def put(self, request, pk):
         task = get_object_or_404(Task, pk=pk)  
         serializer = TaskSerializer(task, data=request.data)
@@ -137,7 +137,7 @@ class TaskUpdate(APIView):
 
 class TaskDelete(APIView):
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticatedOrReadOnly,IsAdminUser]
+    #permission_classes = [IsAuthenticatedOrReadOnly,IsAdminUser]
     def delete(self, request, pk):
         task = get_object_or_404(Task, pk=pk)  
         task.delete()
