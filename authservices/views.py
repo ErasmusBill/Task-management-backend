@@ -35,6 +35,12 @@ class UserCreate(APIView):
 
 class UserLogin(APIView):
     def post(self, request):
+        
+        print("Received Login Request:")
+        print(f"Content-Type: {request.content_type}")
+        print(f"Raw Body: {request.body}")
+        print(f"Parsed Data: {request.data}")
+
         username = request.data.get('username')
         password = request.data.get('password')
         if username is None or password is None:
