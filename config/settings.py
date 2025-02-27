@@ -35,7 +35,7 @@ CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",  
     "http://127.0.0.1:8080",
-    "http://kf7-passionate-hubble.circumeo-apps.net"
+    "https://kf7-passionate-hubble.circumeo-apps.net/",
 ]
 
 # Application definition
