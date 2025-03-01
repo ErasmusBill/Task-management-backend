@@ -29,7 +29,8 @@ SECRET_KEY =  'django-insecure-ssml2qw0g9h$po3l&5jh9mgh037wu2%z0!=hl0q3fi(_lmf8o
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['task-management-backend-7tun.onrender.com', 'localhost', '127.0.0.1']
+
 
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOWED_ORIGINS = [
