@@ -36,7 +36,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",  
     "http://127.0.0.1:8080",
     "https://kf7-passionate-hubble.circumeo-apps.net",
-    "https://task-management-backend-production-3436.up.railway.app/",
+    "https://task-management-backend-production-3436.up.railway.app",
 ]
 
 # Application definition
