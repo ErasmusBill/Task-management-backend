@@ -35,7 +35,7 @@ class TaskCreate(APIView):
 def send_task_assignment_email(sender, instance, created, **kwargs):
     """Send an email when a task is assigned to a user using Gmail."""
     if created and instance.assigned_to:
-        print("Task created and email is about to be sent.")
+        #print("Task created and email is about to be sent.")
         subject = "New Task Assigned to You"
         body = f"""
         Hello {instance.assigned_to.first_name} {instance.assigned_to.last_name},
