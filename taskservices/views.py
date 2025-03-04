@@ -4,22 +4,19 @@ from rest_framework.decorators import api_view
 from rest_framework import status, generics
 from .serializers import TaskSerializer
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from rest_framework.permissions import IsAuthenticated,IsAuthenticatedOrReadOnly,IsAdminUser
+from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly, IsAdminUser
 from rest_framework.views import APIView
 from .models import Task
 from django.core.mail import send_mail
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-import json
-import http.client
-from django.db.models.signals import post_save
-import environ
 from rest_framework.pagination import PageNumberPagination
+
 # Create your views here.
 
 class TaskCreate(APIView):
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    #authentication_classes = [JWTAuthentication]
+    #permission_classes = [IsAuthenticated, IsAdminUser]
 
     def post(self, request):
         # Ensure the user is authenticated
@@ -33,53 +30,12 @@ class TaskCreate(APIView):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-def send_email_via_sendgrid(to_email, subject, body):
-    """Send an email using the SendGrid API."""
-    # Set up the connection
-    conn = http.client.HTTPSConnection("rapidprod-sendgrid-v1.p.rapidapi.com")
-
-    # Define the payload
-    payload = json.dumps({
-        "personalizations": [
-            {
-                "to": [{"email": to_email}],
-                "subject": subject
-            }
-        ],
-        "from": {"email": "erasmuschawey12345@gmail.com"}, 
-        "content": [
-            {
-                "type": "text/plain",
-                "value": body
-            }
-        ]
-    })
-
-    # Define the headers
-    headers = {
-        'x-rapidapi-key': "8febfb0c74mshf943a1a3aec2a46p10a91ejsnfc068c5acb5e", 
-        'x-rapidapi-host': "rapidprod-sendgrid-v1.p.rapidapi.com",
-        'Content-Type': "application/json"
-    }
-
-    # Send the request
-    try:
-        conn.request("POST", "/mail/send", payload, headers)
-        res = conn.getresponse()
-        data = res.read()
-        print(f"API Response Status: {res.status}")
-        print(f"API Response Data: {data.decode('utf-8')}")
-    except Exception as e:
-        print(f"Failed to send email: {e}")
-    finally:
-        conn.close()
-        
-    
 
 @receiver(post_save, sender=Task)
 def send_task_assignment_email(sender, instance, created, **kwargs):
-    """Send an email when a task is assigned to a user using SendGrid API."""
+    """Send an email when a task is assigned to a user using Gmail."""
     if created and instance.assigned_to:
+        print("Task created and email is about to be sent.")
         subject = "New Task Assigned to You"
         body = f"""
         Hello {instance.assigned_to.first_name} {instance.assigned_to.last_name},
@@ -90,13 +46,14 @@ def send_task_assignment_email(sender, instance, created, **kwargs):
         Your Team
         """
 
-        # Send the email using SendGrid API
-        send_email_via_sendgrid(
-            to_email=instance.assigned_to.email,
+        # Send the email using Gmail
+        send_mail(
             subject=subject,
-            body=body
+            message=body,
+            from_email='erasmuschawey12345@gmail.com',  # Replace with your Gmail address
+            recipient_list=[instance.assigned_to.email],
+            fail_silently=False,
         )
-
 
 class TaskList(APIView):
     authentication_classes = [JWTAuthentication]
@@ -126,7 +83,6 @@ class TaskDetail(APIView):
 
 class TaskUpdate(APIView):
     authentication_classes = [JWTAuthentication]
-    #permission_classes = [IsAuthenticatedOrReadOnly,IsAdminUser]
     def put(self, request, pk):
         task = get_object_or_404(Task, pk=pk)  
         serializer = TaskSerializer(task, data=request.data)
@@ -137,7 +93,6 @@ class TaskUpdate(APIView):
 
 class TaskDelete(APIView):
     authentication_classes = [JWTAuthentication]
-    #permission_classes = [IsAuthenticatedOrReadOnly,IsAdminUser]
     def delete(self, request, pk):
         task = get_object_or_404(Task, pk=pk)  
         task.delete()
@@ -145,8 +100,6 @@ class TaskDelete(APIView):
     
 class TaskListByUser(APIView):
     authentication_classes = [JWTAuthentication]
-    #permission_classes = [IsAuthenticated, IsAdminUser] 
-
     def get(self, request, user_id):
         tasks = Task.objects.filter(user_id=user_id)  
         paginator = PageNumberPagination()
@@ -165,4 +118,4 @@ def search_task(request):
     
 @api_view(['GET'])
 def get_status_choices(request):
-    return Response(dict(Task.STATUS_CHOICES))    
+    return Response(dict(Task.STATUS_CHOICES))
