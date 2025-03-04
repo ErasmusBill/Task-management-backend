@@ -12,6 +12,11 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'username', 'email', 'first_name', 'last_name', 'password', 'password2']
 
+    def validate_email(self, value):
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("A user with that email address already exists.")
+        return value
+    
     def validate_password(self, value):
         if len(value) < 8:
             raise serializers.ValidationError("Password must be at least 8 characters long.")
