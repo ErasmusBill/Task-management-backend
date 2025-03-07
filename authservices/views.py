@@ -9,7 +9,8 @@ from django.contrib.auth import authenticate,login
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
 import uuid
-from django.utils import timezone,timedelta
+from django.utils import timezone
+from datetime import timedelta
 from django.core.mail import send_mail
 from django.dispatch import receiver
 from django.db.models.signals import post_save
