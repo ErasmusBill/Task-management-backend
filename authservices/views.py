@@ -1,4 +1,4 @@
-from django.shortcuts import render
+from django.shortcuts import render,get_object_or_404
 from rest_framework.response import Response
 from rest_framework import permissions
 from rest_framework.views import APIView
@@ -8,6 +8,16 @@ from django.contrib.auth.models import User
 from django.contrib.auth import authenticate,login
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
+import uuid
+from django.utils import timezone,timedelta
+from django.core.mail import send_mail
+from django.dispatch import receiver
+from django.db.models.signals import post_save
+from django.conf import settings
+
+
+
+
 
 User = get_user_model()
 # Create your views here.
@@ -23,7 +33,11 @@ class UserCreate(APIView):
     def post(self, request):
         serializer = UserSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            user = serializer.save()
+            verification_token = str(uuid.uuid4())
+            user.verification_token = verification_token
+            user.verification_token_expiry = timezone.now() + timezone.timedelta(hours=24)
+            user.save()
             response_data = {
                 'id': serializer.data['id'],
                 'username': serializer.data['username'],
@@ -32,14 +46,58 @@ class UserCreate(APIView):
             }
             return Response(response_data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    
+@receiver(post_save, sender=User)
+def send_verification_token(sender, instance, created, **kwargs):
+    if created:
+        verification_token = instance.verification_token
+        base_url = getattr(settings, 'FRONTEND_URL', '"https://task-management-backend-production-3436.up.railway.app"')
+        verification_url = f"{base_url}/users/verify-email/{verification_token}/"
+        
+        subject = "Verify your email address"
+        html_message = f"""
+        <p>Hi {instance.username},</p>
+        <p>Please click the link below to verify your email address:</p>
+        <p><a href="{verification_url}">Verify Email</a></p>
+        <p>If you didn't request this, you can safely ignore this email.</p>
+        """
+        plain_message = f"""
+        Hi {instance.username},
+        Please click the link below to verify your email address: {verification_url}
+        If you didn't request this, you can safely ignore this email.
+        """
+        
+        try:
+            send_mail(
+                subject=subject,
+                message=plain_message,
+                html_message=html_message,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[instance.email],
+                fail_silently=False,
+            )
+        except Exception as e:
+            # Log the error
+            print(f"Failed to send verification email: {e}")
+                
+class VerifyEmailView(APIView):
+    def get(self, request, token):
+        user = get_object_or_404(User, verification_token=token)   
+        
+        if user.verification_token_expiry and user.verification_token_expiry > timezone.now():
+            user.is_verified = True
+            user.verification_token = None
+            user.verification_token_expiry = None
+            user.save()
+            return Response({"message":"Email verified successfully"}, status=status.HTTP_200_OK)     
+        else:
+            return Response({"error":"Invalid or expired verification token"}, status=status.HTTP_400_BAD_REQUEST)    
+    
 
 class UserLogin(APIView):
     def post(self, request):
         
-
-
-
-
 
         username = request.data.get('username')
         password = request.data.get('password')

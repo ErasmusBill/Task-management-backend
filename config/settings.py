@@ -39,6 +39,7 @@ CORS_ALLOWED_ORIGINS = [
     "https://task-management-backend-production-3436.up.railway.app",
 ]
 
+FRONTEND_URL = "https://task-management-backend-production-3436.up.railway.app"
 # Application definition
 
 INSTALLED_APPS = [
