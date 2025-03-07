@@ -13,7 +13,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name','verification_token','verification_token_expiry' 'password', 'password2']
+        fields = ['id', 'username', 'email', 'first_name', 'last_name','verification_token','verification_token_expiry' 'password', 'password2','is_verified']
         
         extra_kwargs = {
             'verification_token': {'read_only': True},
