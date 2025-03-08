@@ -95,6 +95,50 @@ class VerifyEmailView(APIView):
             return Response({"message":"Email verified successfully"}, status=status.HTTP_200_OK)     
         else:
             return Response({"error":"Invalid or expired verification token"}, status=status.HTTP_400_BAD_REQUEST)    
+class ResendVerificationEmailView(APIView):
+    def post(self, request):
+        email = request.data.get('email')
+        if not email:
+            return Response({"error": "Email is required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        user = get_object_or_404(User, email=email)
+        
+        # Generate a new verification token
+        verification_token = str(uuid.uuid4())
+        user.verification_token = verification_token
+        user.verification_token_expiry = timezone.now() + timezone.timedelta(hours=24)
+        user.save()
+        
+        # Send the new verification email
+        base_url = getattr(settings, 'FRONTEND_URL', "https://task-management-gold-iota.vercel.app/")
+        verification_url = f"{base_url}/verify-email?token={verification_token}/"
+        
+        subject = "Verify your email address"
+        html_message = f"""
+        <p>Hi {user.username},</p>
+        <p>Please click the link below to verify your email address:</p>
+        <p><a href="{verification_url}">Verify Email</a></p>
+        <p>If you didn't request this, you can safely ignore this email.</p>
+        """
+        plain_message = f"""
+        Hi {user.username},
+        Please click the link below to verify your email address: {verification_url}
+        If you didn't request this, you can safely ignore this email.
+        """
+        
+        try:
+            send_mail(
+                subject=subject,
+                message=plain_message,
+                html_message=html_message,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
+            return Response({"message": "Verification email resent successfully."}, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(f"Failed to resend verification email: {e}")
+            return Response({"error": "Failed to resend verification email. Please try again later."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 
 class UserLogin(APIView):
