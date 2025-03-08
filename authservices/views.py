@@ -39,6 +39,7 @@ class UserCreate(APIView):
             user.verification_token = verification_token
             user.verification_token_expiry = timezone.now() + timezone.timedelta(hours=24)
             user.save()
+            print(f"Generated Verification Token: {verification_token}")
             response_data = {
                 'id': serializer.data['id'],
                 'username': serializer.data['username'],
@@ -54,7 +55,7 @@ def send_verification_token(sender, instance, created, **kwargs):
     if created:
         verification_token = instance.verification_token
         base_url = getattr(settings, 'FRONTEND_URL', '"https://task-management-backend-production-3436.up.railway.app"')
-        verification_url = f"{base_url}/api/verify-email/{verification_token}/"
+        verification_url = f"{base_url}/verify-email/{verification_token}/"
         
         subject = "Verify your email address"
         html_message = f"""
@@ -98,8 +99,6 @@ class VerifyEmailView(APIView):
 
 class UserLogin(APIView):
     def post(self, request):
-        
-
         username = request.data.get('username')
         password = request.data.get('password')
         if username is None or password is None:
@@ -108,6 +107,9 @@ class UserLogin(APIView):
         #login(request, user)
         if not user:
             return Response({'error': 'Invalid Credentials'}, status=status.HTTP_404_NOT_FOUND)
+        
+        if not user.is_verified:
+            return Response({'error': 'Email not verified. Please verify your email to login.'}, status=status.HTTP_403_FORBIDDEN)
         
         refresh = RefreshToken.for_user(user)
         return Response(
