@@ -111,7 +111,7 @@ class ResendVerificationEmailView(APIView):
         
         # Send the new verification email
         base_url = getattr(settings, 'FRONTEND_URL', "https://task-management-gold-iota.vercel.app/")
-        verification_url = f"{base_url}/verify-email?token={verification_token}/"
+        verification_url = f"{base_url}/verify-email?token={verification_token}"
         
         subject = "Verify your email address"
         html_message = f"""
