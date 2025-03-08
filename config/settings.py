@@ -170,6 +170,8 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
+AUTH_USER_MODEL = 'authservices.User'
+
 #Email settings
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'  # You're missing ".EmailBackend"
 EMAIL_HOST = 'smtp.gmail.com'

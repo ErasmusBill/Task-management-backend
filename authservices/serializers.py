@@ -6,20 +6,29 @@ from django.core.exceptions import ValidationError
 
 User = get_user_model()
 
-
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, max_length=128)
     password2 = serializers.CharField(write_only=True, max_length=128)
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name','verification_token','verification_token_expiry' 'password', 'password2','is_verified']
+        fields = [
+            'id', 
+            'username', 
+            'email', 
+            'first_name', 
+            'last_name',
+            'verification_token',
+            'verification_token_expiry',  
+            'password', 
+            'password2',
+            'is_verified'
+        ]
         
         extra_kwargs = {
             'verification_token': {'read_only': True},
             'verification_token_expiry': {'read_only': True},
         }
-
 
     def validate_email(self, value):
         if User.objects.filter(email=value).exists():
@@ -52,8 +61,6 @@ class UserSerializer(serializers.ModelSerializer):
         instance.save()
         return instance
 
-    
-    
 class ChangePasswordSerializer(serializers.Serializer):
     old_password = serializers.CharField(required=True)
     new_password = serializers.CharField(required=True)
@@ -63,4 +70,4 @@ class ChangePasswordSerializer(serializers.Serializer):
             validate_password(value)  
         except ValidationError as e:
             raise serializers.ValidationError(str(e))
-        return value   
+        return value
