@@ -54,7 +54,7 @@ def send_verification_token(sender, instance, created, **kwargs):
     if created:
         verification_token = instance.verification_token
         base_url = getattr(settings, 'FRONTEND_URL', '"https://task-management-backend-production-3436.up.railway.app"')
-        verification_url = f"{base_url}/users/verify-email/{verification_token}/"
+        verification_url = f"{base_url}/verify-email/{verification_token}/"
         
         subject = "Verify your email address"
         html_message = f"""
