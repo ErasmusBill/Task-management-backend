@@ -48,15 +48,14 @@ class UserCreate(APIView):
             }
             return Response(response_data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-    
+
 @receiver(post_save, sender=User)
 def send_verification_token(sender, instance, created, **kwargs):
     if created:
         verification_token = instance.verification_token
-        base_url = getattr(settings, 'FRONTEND_URL', "https://task-management-gold-iota.vercel.app/")
-        verification_url = f"{base_url}/verify-email?token={verification_token}/"
-        
+        base_url = getattr(settings, 'FRONTEND_URL', "https://task-management-gold-iota.vercel.app")
+        verification_url = f"{base_url}/verify-email?token={verification_token}"
+
         subject = "Verify your email address"
         html_message = f"""
         <p>Hi {instance.username},</p>
@@ -81,8 +80,8 @@ def send_verification_token(sender, instance, created, **kwargs):
             )
         except Exception as e:
             # Log the error
-            print(f"Failed to send verification email: {e}")
-                
+            print(f"Failed to send verification email: {e}")    
+    
 class VerifyEmailView(APIView):
     def get(self, request, token):
         user = get_object_or_404(User, verification_token=token)   
