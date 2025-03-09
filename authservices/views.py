@@ -55,6 +55,8 @@ def send_verification_token(sender, instance, created, **kwargs):
         verification_token = instance.verification_token
         base_url = getattr(settings, 'FRONTEND_URL', "https://task-management-gold-iota.vercel.app")
         verification_url = f"{base_url}/verify-email?token={verification_token}"
+        
+        print(f"Sending email with verification URL: {verification_url}")
 
         subject = "Verify your email address"
         html_message = f"""
