@@ -36,8 +36,14 @@ class UserCreate(APIView):
         if serializer.is_valid():
             user = serializer.save()
             verification_token = str(uuid.uuid4())
+            
+            print(f"Generated Verification Token: {verification_token}")
+            
             user.verification_token = verification_token
-            user.verification_token_expiry = timezone.now() + timezone.timedelta(hours=24)
+            User.objects.filter(pk=user.pk).update(
+                verification_token=verification_token,
+                verification_token_expiry=timezone.now() + timezone.timedelta(hours=24)
+            )
             user.save()
             print(f"Generated Verification Token: {verification_token}")
             response_data = {
@@ -52,8 +58,17 @@ class UserCreate(APIView):
 @receiver(post_save, sender=User)
 def send_verification_token(sender, instance, created, **kwargs):
     if created:
+        instance.refresh_from_db()
         verification_token = instance.verification_token
+        
+        if not verification_token:
+            print("ERROR: No verification token found for user")
+            return
+        
         base_url = getattr(settings, 'FRONTEND_URL', "https://task-management-gold-iota.vercel.app")
+        
+        base_url = base_url.rstrip('/')
+        
         verification_url = f"{base_url}/verify-email?token={verification_token}"
         
         print(f"Sending email with verification URL: {verification_url}")
