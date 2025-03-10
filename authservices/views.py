@@ -203,9 +203,6 @@ class ResendVerificationEmailView(APIView):
 
 
 class UserLogin(APIView):
-    """
-    API endpoint to authenticate a user and return JWT tokens.
-    """
     def post(self, request):
         username = request.data.get('username')
         password = request.data.get('password')
@@ -219,7 +216,11 @@ class UserLogin(APIView):
         if not user.is_verified:
             return Response({'error': 'Email not verified. Please verify your email to login.'}, status=status.HTTP_403_FORBIDDEN)
 
-        refresh = RefreshToken.for_user(user)
+        try:
+            refresh = RefreshToken.for_user(user)
+        except Exception as e:
+            return Response({'error': 'Failed to generate token. Please try again.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
         return Response(
             {
                 'message': 'Login successful',
@@ -229,7 +230,6 @@ class UserLogin(APIView):
             },
             status=status.HTTP_200_OK
         )
-
 
 class Logout(APIView):
     """
