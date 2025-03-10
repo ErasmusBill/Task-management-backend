@@ -59,7 +59,7 @@ class UserCreate(APIView):
         Helper method to send a verification email.
         """
         base_url = getattr(settings, 'FRONTEND_URL', "https://task-management-gold-iota.vercel.app").rstrip('/')
-        verification_url = f"{base_url}/verify-email?token={user.verification_token}"
+        verification_url = f"{base_url}/verify-email/{user.verification_token}/"
 
         subject = "Verify your email address"
         html_message = f"""
