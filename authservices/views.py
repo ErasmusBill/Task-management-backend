@@ -96,7 +96,7 @@ class VerifyEmailView(APIView):
         
             decoded_token = unquote(token)
             print(f"Decoded token: {decoded_token}")  
-            user = get_object_or_404(User, verification_token=token)
+            user = get_object_or_404(User, verification_token=decoded_token)
 
             if user.verification_token_expiry and user.verification_token_expiry > timezone.now():
                 user.is_verified = True
