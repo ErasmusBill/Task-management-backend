@@ -37,7 +37,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:8080",
     "https://kf7-passionate-hubble.circumeo-apps.net",
     "https://task-management-backend-production-3436.up.railway.app",
-    "https://task-management-gold-iota.vercel.app/"
+    "https://task-management-gold-iota.vercel.app",
 ]
 
 FRONTEND_URL = "https://task-management-gold-iota.vercel.app/"
