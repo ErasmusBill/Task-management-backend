@@ -26,11 +26,3 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.username
-    
-    
-    
-class VerifyEmail(models.Model):
-    email = models.EmailField()
-    token = models.CharField(max_length=255)
-    is_verified = models.BooleanField(default=True)
-          

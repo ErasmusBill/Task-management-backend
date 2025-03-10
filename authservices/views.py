@@ -7,12 +7,14 @@ from .serializers import UserSerializer, ChangePasswordSerializer
 from django.contrib.auth import authenticate
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
-import uuid
+import random
 from django.utils import timezone
 from datetime import timedelta
 from django.core.mail import send_mail
 from django.conf import settings
-from urllib.parse import unquote
+from django.dispatch import receiver
+from django.db.models.signals import post_save
+
 
 User = get_user_model()
 
@@ -28,49 +30,46 @@ class UserListView(generics.ListAPIView):
 
 class UserCreate(APIView):
     """
-    API endpoint to create a new user and send a verification email.
+    API endpoint to create a new user and send a verification email with a 4-digit PIN.
     """
     def post(self, request):
         serializer = UserSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
-            verification_token = str(uuid.uuid4())  # Generate a new token
-            print(f"Generated token: {verification_token}")  # For debugging
+            verification_pin = str(random.randint(1000, 9999))  
+            print(f"Generated PIN: {verification_pin}")  
 
-            # Save the token and expiry in the database
-            user.verification_token = verification_token
+            user.verification_token = verification_pin
             user.verification_token_expiry = timezone.now() + timedelta(hours=24)
             user.save()
 
-            # Send verification email
+            # Trigger the signal to send the verification email
             self._send_verification_email(user)
 
             response_data = {
                 'id': user.id,
                 'username': user.username,
                 'email': user.email,
-                'message': 'User created successfully. Please check your email to verify your account.'
+                'message': 'User created successfully. Please check your email for the verification PIN.'
             }
             return Response(response_data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def _send_verification_email(self, user):
         """
-        Helper method to send a verification email.
+        Helper method to send a verification email with a 4-digit PIN.
         """
-        base_url = getattr(settings, 'FRONTEND_URL', "https://task-management-gold-iota.vercel.app").rstrip('/')
-        verification_url = f"{base_url}/verify-email/{user.verification_token}/"
-
         subject = "Verify your email address"
         html_message = f"""
         <p>Hi {user.username},</p>
-        <p>Please click the link below to verify your email address:</p>
-        <p><a href="{verification_url}">Verify Email</a></p>
+        <p>Your verification PIN is: <strong>{user.verification_token}</strong></p>
+        <p>Please enter this PIN on the verification page to verify your email address.</p>
         <p>If you didn't request this, you can safely ignore this email.</p>
         """
         plain_message = f"""
         Hi {user.username},
-        Please click the link below to verify your email address: {verification_url}
+        Your verification PIN is: {user.verification_token}
+        Please enter this PIN on the verification page to verify your email address.
         If you didn't request this, you can safely ignore this email.
         """
 
@@ -88,31 +87,72 @@ class UserCreate(APIView):
             print(f"Failed to send verification email: {e}")
 
 
+@receiver(post_save, sender=User)
+def send_verification_email_on_creation(sender, instance, created, **kwargs):
+    """
+    Signal handler to send a verification email when a new user is created.
+    """
+    if created:
+        verification_pin = str(random.randint(1000, 9999))
+        instance.verification_token = verification_pin
+        instance.verification_token_expiry = timezone.now() + timedelta(hours=24)
+        instance.save()
+
+        subject = "Verify your email address"
+        html_message = f"""
+        <p>Hi {instance.username},</p>
+        <p>Your verification PIN is: <strong>{instance.verification_token}</strong></p>
+        <p>Please enter this PIN on the verification page to verify your email address.</p>
+        <p>If you didn't request this, you can safely ignore this email.</p>
+        """
+        plain_message = f"""
+        Hi {instance.username},
+        Your verification PIN is: {instance.verification_token}
+        Please enter this PIN on the verification page to verify your email address.
+        If you didn't request this, you can safely ignore this email.
+        """
+
+        try:
+            send_mail(
+                subject=subject,
+                message=plain_message,
+                html_message=html_message,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[instance.email],
+                fail_silently=False,
+            )
+            print(f"Verification email sent to {instance.email}")
+        except Exception as e:
+            print(f"Failed to send verification email: {e}")
+
+
 class VerifyEmailView(APIView):
     """
-    API endpoint to verify a user's email using the verification token.
+    API endpoint to verify a user's email using the 4-digit PIN.
     """
-    def get(self, request, token):
-        # Decode the token to handle URL-encoded characters
-        decoded_token = unquote(token)
-        print(f"Decoded token: {decoded_token}")  # For debugging
+    def post(self, request):
+        pin = request.data.get('pin')
+        if not pin:
+            return Response({"error": "Email and PIN are required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Find the user with the decoded token
-        user = get_object_or_404(User, verification_token=decoded_token)
+        user = get_object_or_404(User, verification_token=pin)
 
-        if user.verification_token_expiry and user.verification_token_expiry > timezone.now():
-            user.is_verified = True
-            user.verification_token = None
-            user.verification_token_expiry = None
-            user.save()
-            return Response({"message": "Email verified successfully"}, status=status.HTTP_200_OK)
+        if user.verification_token == pin:
+            if user.verification_token_expiry and user.verification_token_expiry > timezone.now():
+                user.is_verified = True
+                user.verification_token = None
+                user.verification_token_expiry = None
+                user.save()
+                return Response({"message": "Email verified successfully"}, status=status.HTTP_200_OK)
+            else:
+                return Response({"error": "Expired verification PIN"}, status=status.HTTP_400_BAD_REQUEST)
         else:
-            return Response({"error": "Invalid or expired verification token"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Invalid verification PIN"}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ResendVerificationEmailView(APIView):
     """
-    API endpoint to resend the verification email.
+    API endpoint to resend the verification email with a new 4-digit PIN.
     """
     def post(self, request):
         email = request.data.get('email')
@@ -120,9 +160,8 @@ class ResendVerificationEmailView(APIView):
             return Response({"error": "Email is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         user = get_object_or_404(User, email=email)
-
-        # Generate a new verification token
-        user.verification_token = str(uuid.uuid4())
+        verification_pin = str(random.randint(1000, 9999))
+        user.verification_token = verification_pin
         user.verification_token_expiry = timezone.now() + timedelta(hours=24)
         user.save()
 
@@ -133,21 +172,19 @@ class ResendVerificationEmailView(APIView):
 
     def _send_verification_email(self, user):
         """
-        Helper method to send a verification email.
+        Helper method to send a verification email with a 4-digit PIN.
         """
-        base_url = getattr(settings, 'FRONTEND_URL', "https://task-management-gold-iota.vercel.app").rstrip('/')
-        verification_url = f"{base_url}/verify-email/{user.verification_token}/"
-
         subject = "Verify your email address"
         html_message = f"""
         <p>Hi {user.username},</p>
-        <p>Please click the link below to verify your email address:</p>
-        <p><a href="{verification_url}">Verify Email</a></p>
+        <p>Your verification PIN is: <strong>{user.verification_token}</strong></p>
+        <p>Please enter this PIN on the verification page to verify your email address.</p>
         <p>If you didn't request this, you can safely ignore this email.</p>
         """
         plain_message = f"""
         Hi {user.username},
-        Please click the link below to verify your email address: {verification_url}
+        Your verification PIN is: {user.verification_token}
+        Please enter this PIN on the verification page to verify your email address.
         If you didn't request this, you can safely ignore this email.
         """
 
@@ -160,9 +197,9 @@ class ResendVerificationEmailView(APIView):
                 recipient_list=[user.email],
                 fail_silently=False,
             )
-            print(f"Verification email resent to {user.email}")
+            print(f"Verification email sent to {user.email}")
         except Exception as e:
-            print(f"Failed to resend verification email: {e}")
+            print(f"Failed to send verification email: {e}")
 
 
 class UserLogin(APIView):
