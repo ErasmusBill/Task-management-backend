@@ -14,7 +14,7 @@ from django.core.mail import send_mail
 from django.dispatch import receiver
 from django.db.models.signals import post_save
 from django.conf import settings
-from urllib.parse import unquote
+
 User = get_user_model()
 
 
@@ -93,19 +93,16 @@ class VerifyEmailView(APIView):
     API endpoint to verify a user's email using the verification token.
     """
     def get(self, request, token):
-        
-            decoded_token = unquote(token)
-            print(f"Decoded token: {decoded_token}")  
-            user = get_object_or_404(User, verification_token=decoded_token)
+        user = get_object_or_404(User, verification_token=token)
 
-            if user.verification_token_expiry and user.verification_token_expiry > timezone.now():
-                user.is_verified = True
-                user.verification_token = None
-                user.verification_token_expiry = None
-                user.save()
-                return Response({"message": "Email verified successfully"}, status=status.HTTP_200_OK)
-            else:
-                return Response({"error": "Invalid or expired verification token"}, status=status.HTTP_400_BAD_REQUEST)
+        if user.verification_token_expiry and user.verification_token_expiry > timezone.now():
+            user.is_verified = True
+            user.verification_token = None
+            user.verification_token_expiry = None
+            user.save()
+            return Response({"message": "Email verified successfully"}, status=status.HTTP_200_OK)
+        else:
+            return Response({"error": "Invalid or expired verification token"}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ResendVerificationEmailView(APIView):
