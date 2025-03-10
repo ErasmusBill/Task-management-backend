@@ -11,9 +11,8 @@ import uuid
 from django.utils import timezone
 from datetime import timedelta
 from django.core.mail import send_mail
-from django.dispatch import receiver
-from django.db.models.signals import post_save
 from django.conf import settings
+from urllib.parse import unquote
 
 User = get_user_model()
 
@@ -36,6 +35,7 @@ class UserCreate(APIView):
         if serializer.is_valid():
             user = serializer.save()
             verification_token = str(uuid.uuid4())  # Generate a new token
+            print(f"Generated token: {verification_token}")  # For debugging
 
             # Save the token and expiry in the database
             user.verification_token = verification_token
@@ -93,7 +93,12 @@ class VerifyEmailView(APIView):
     API endpoint to verify a user's email using the verification token.
     """
     def get(self, request, token):
-        user = get_object_or_404(User, verification_token=token)
+        # Decode the token to handle URL-encoded characters
+        decoded_token = unquote(token)
+        print(f"Decoded token: {decoded_token}")  # For debugging
+
+        # Find the user with the decoded token
+        user = get_object_or_404(User, verification_token=decoded_token)
 
         if user.verification_token_expiry and user.verification_token_expiry > timezone.now():
             user.is_verified = True
@@ -131,7 +136,7 @@ class ResendVerificationEmailView(APIView):
         Helper method to send a verification email.
         """
         base_url = getattr(settings, 'FRONTEND_URL', "https://task-management-gold-iota.vercel.app").rstrip('/')
-        verification_url = f"{base_url}/verify-email?token={user.verification_token}"
+        verification_url = f"{base_url}/verify-email/{user.verification_token}/"
 
         subject = "Verify your email address"
         html_message = f"""
