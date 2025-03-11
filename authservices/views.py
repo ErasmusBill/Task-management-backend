@@ -37,11 +37,14 @@ class UserCreate(APIView):
         if serializer.is_valid():
             user = serializer.save()
             verification_pin = str(random.randint(1000, 9999))  
-            print(f"Generated PIN: {verification_pin}")  
+            print(f"[DEBUG] Generated PIN: {verification_pin}")  
 
             user.verification_token = verification_pin
             user.verification_token_expiry = timezone.now() + timedelta(hours=24)
             user.save()
+
+            # Debug: Print user details
+            print(f"[DEBUG] User created: ID={user.id}, Username={user.username}, Email={user.email}")
 
             # Trigger the signal to send the verification email
             self._send_verification_email(user)
@@ -53,6 +56,7 @@ class UserCreate(APIView):
                 'message': 'User created successfully. Please check your email for the verification PIN.'
             }
             return Response(response_data, status=status.HTTP_201_CREATED)
+        print(f"[DEBUG] Serializer errors: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def _send_verification_email(self, user):
@@ -82,9 +86,9 @@ class UserCreate(APIView):
                 recipient_list=[user.email],
                 fail_silently=False,
             )
-            print(f"Verification email sent to {user.email}")
+            print(f"[DEBUG] Verification email sent to {user.email}")
         except Exception as e:
-            print(f"Failed to send verification email: {e}")
+            print(f"[DEBUG] Failed to send verification email: {e}")
 
 
 @receiver(post_save, sender=User)
@@ -97,6 +101,8 @@ def send_verification_email_on_creation(sender, instance, created, **kwargs):
         instance.verification_token = verification_pin
         instance.verification_token_expiry = timezone.now() + timedelta(hours=24)
         instance.save()
+
+        print(f"[DEBUG] Verification PIN generated for user {instance.username}: {verification_pin}")
 
         subject = "Verify your email address"
         html_message = f"""
@@ -121,9 +127,9 @@ def send_verification_email_on_creation(sender, instance, created, **kwargs):
                 recipient_list=[instance.email],
                 fail_silently=False,
             )
-            print(f"Verification email sent to {instance.email}")
+            print(f"[DEBUG] Verification email sent to {instance.email}")
         except Exception as e:
-            print(f"Failed to send verification email: {e}")
+            print(f"[DEBUG] Failed to send verification email: {e}")
 
 
 class VerifyEmailView(APIView):
@@ -133,9 +139,11 @@ class VerifyEmailView(APIView):
     def post(self, request):
         pin = request.data.get('pin')
         if not pin:
-            return Response({"error": "Email and PIN are required"}, status=status.HTTP_400_BAD_REQUEST)
+            print("[DEBUG] PIN is required for verification.")
+            return Response({"error": "PIN is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         user = get_object_or_404(User, verification_token=pin)
+        print(f"[DEBUG] User found for PIN {pin}: ID={user.id}, Username={user.username}")
 
         if user.verification_token == pin:
             if user.verification_token_expiry and user.verification_token_expiry > timezone.now():
@@ -143,10 +151,13 @@ class VerifyEmailView(APIView):
                 user.verification_token = None
                 user.verification_token_expiry = None
                 user.save()
+                print(f"[DEBUG] User {user.username} verified successfully.")
                 return Response({"message": "Email verified successfully"}, status=status.HTTP_200_OK)
             else:
+                print(f"[DEBUG] Expired verification PIN for user {user.username}.")
                 return Response({"error": "Expired verification PIN"}, status=status.HTTP_400_BAD_REQUEST)
         else:
+            print(f"[DEBUG] Invalid verification PIN for user {user.username}.")
             return Response({"error": "Invalid verification PIN"}, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -157,13 +168,18 @@ class ResendVerificationEmailView(APIView):
     def post(self, request):
         email = request.data.get('email')
         if not email:
+            print("[DEBUG] Email is required for resending verification.")
             return Response({"error": "Email is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         user = get_object_or_404(User, email=email)
+        print(f"[DEBUG] User found for email {email}: ID={user.id}, Username={user.username}")
+
         verification_pin = str(random.randint(1000, 9999))
         user.verification_token = verification_pin
         user.verification_token_expiry = timezone.now() + timedelta(hours=24)
         user.save()
+
+        print(f"[DEBUG] New verification PIN generated for user {user.username}: {verification_pin}")
 
         # Send the new verification email
         self._send_verification_email(user)
@@ -197,9 +213,9 @@ class ResendVerificationEmailView(APIView):
                 recipient_list=[user.email],
                 fail_silently=False,
             )
-            print(f"Verification email sent to {user.email}")
+            print(f"[DEBUG] Verification email sent to {user.email}")
         except Exception as e:
-            print(f"Failed to send verification email: {e}")
+            print(f"[DEBUG] Failed to send verification email: {e}")
 
 
 class UserLogin(APIView):
@@ -207,18 +223,25 @@ class UserLogin(APIView):
         username = request.data.get('username')
         password = request.data.get('password')
         if not username or not password:
+            print("[DEBUG] Username and password are required for login.")
             return Response({'error': 'Please provide both username and password'}, status=status.HTTP_400_BAD_REQUEST)
 
         user = authenticate(username=username, password=password)
         if not user:
+            print(f"[DEBUG] Invalid credentials for username: {username}")
             return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
 
+        print(f"[DEBUG] User authenticated: ID={user.id}, Username={user.username}, Verified={user.is_verified}")
+
         if not user.is_verified:
+            print(f"[DEBUG] User {user.username} is not verified.")
             return Response({'error': 'Email not verified. Please verify your email to login.'}, status=status.HTTP_403_FORBIDDEN)
 
         try:
             refresh = RefreshToken.for_user(user)
+            print(f"[DEBUG] Refresh token generated for user {user.username}.")
         except Exception as e:
+            print(f"[DEBUG] Error generating token for user {user.username}: {e}")
             return Response({'error': 'Failed to generate token. Please try again.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         return Response(
@@ -231,6 +254,7 @@ class UserLogin(APIView):
             status=status.HTTP_200_OK
         )
 
+
 class Logout(APIView):
     """
     API endpoint to log out a user by blacklisting their refresh token.
@@ -238,13 +262,16 @@ class Logout(APIView):
     def post(self, request):
         refresh_token = request.data.get('refresh_token')
         if not refresh_token:
+            print("[DEBUG] Refresh token is required for logout.")
             return Response({'error': 'Refresh token is required'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             token = RefreshToken(refresh_token)
             token.blacklist()
+            print(f"[DEBUG] Refresh token blacklisted: {refresh_token}")
             return Response({'message': 'Logout successful'}, status=status.HTTP_205_RESET_CONTENT)
         except Exception as e:
+            print(f"[DEBUG] Error blacklisting refresh token: {e}")
             return Response({'error': 'Invalid refresh token'}, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -259,10 +286,13 @@ class ChangePasswordView(APIView):
         serializer = ChangePasswordSerializer(data=request.data)
         if serializer.is_valid():
             if not user.check_password(serializer.validated_data['old_password']):
+                print(f"[DEBUG] Incorrect old password for user {user.username}.")
                 return Response({"old_password": ["Wrong password."]}, status=status.HTTP_400_BAD_REQUEST)
             user.set_password(serializer.validated_data['new_password'])
             user.save()
+            print(f"[DEBUG] Password updated for user {user.username}.")
             return Response({"message": "Password updated successfully."}, status=status.HTTP_200_OK)
+        print(f"[DEBUG] Serializer errors for password change: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -275,6 +305,7 @@ class UpdateProfileView(APIView):
     def get(self, request):
         user = request.user
         serializer = UserSerializer(user)
+        print(f"[DEBUG] Profile data retrieved for user {user.username}.")
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def put(self, request):
@@ -282,5 +313,7 @@ class UpdateProfileView(APIView):
         serializer = UserSerializer(user, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
+            print(f"[DEBUG] Profile updated for user {user.username}.")
             return Response(serializer.data, status=status.HTTP_200_OK)
+        print(f"[DEBUG] Serializer errors for profile update: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
