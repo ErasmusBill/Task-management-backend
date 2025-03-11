@@ -19,14 +19,12 @@ class TaskCreate(APIView):
     #permission_classes = [IsAuthenticated, IsAdminUser]
 
     def post(self, request):
-        # Ensure the user is authenticated
         if not request.user.is_authenticated:
             return Response({'error': 'Failed to retrieve user information. Please log in again.'}, status=status.HTTP_401_UNAUTHORIZED)
 
         # Proceed with task creation
         serializer = TaskSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save(created_by=request.user)  # Automatically set created_by to the authenticated user
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -35,7 +33,6 @@ class TaskCreate(APIView):
 def send_task_assignment_email(sender, instance, created, **kwargs):
     """Send an email when a task is assigned to a user using Gmail."""
     if created and instance.assigned_to:
-        #print("Task created and email is about to be sent.")
         subject = "New Task Assigned to You"
         body = f"""
         Hello {instance.assigned_to.first_name} {instance.assigned_to.last_name},
@@ -50,7 +47,7 @@ def send_task_assignment_email(sender, instance, created, **kwargs):
         send_mail(
             subject=subject,
             message=body,
-            from_email='erasmuschawey12345@gmail.com',  # Replace with your Gmail address
+            from_email='erasmuschawey12345@gmail.com',  
             recipient_list=[instance.assigned_to.email],
             fail_silently=False,
         )

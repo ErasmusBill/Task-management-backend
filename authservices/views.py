@@ -54,7 +54,6 @@ class UserCreate(APIView):
                 'message': 'User created successfully. Please check your email for the verification PIN.'
             }
             return Response(response_data, status=status.HTTP_201_CREATED)
-        print(f"[DEBUG] Serializer errors: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def _send_verification_email(self, user):
@@ -84,7 +83,6 @@ class UserCreate(APIView):
                 recipient_list=[user.email],
                 fail_silently=False,
             )
-            print(f"[DEBUG] Verification email sent to {user.email}")
         except Exception as e:
             print(f"[DEBUG] Failed to send verification email: {e}")
 
@@ -125,7 +123,6 @@ def send_verification_email_on_creation(sender, instance, created, **kwargs):
                 recipient_list=[instance.email],
                 fail_silently=False,
             )
-            print(f"[DEBUG] Verification email sent to {instance.email}")
         except Exception as e:
             print(f"[DEBUG] Failed to send verification email: {e}")
 
@@ -211,7 +208,6 @@ class ResendVerificationEmailView(APIView):
                 recipient_list=[user.email],
                 fail_silently=False,
             )
-            print(f"[DEBUG] Verification email sent to {user.email}")
         except Exception as e:
             print(f"[DEBUG] Failed to send verification email: {e}")
 
