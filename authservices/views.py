@@ -14,6 +14,7 @@ from django.core.mail import send_mail
 from django.conf import settings
 from django.dispatch import receiver
 from django.db.models.signals import post_save
+from authservices.email_verification import verify_email
 
 
 User = get_user_model()
@@ -35,6 +36,14 @@ class UserCreate(APIView):
     def post(self, request):
         serializer = UserSerializer(data=request.data)
         if serializer.is_valid():
+            email = serializer.validated_data.get("email")
+            verification_result = verify_email(email)
+            if not verification_result.get("valid"):
+                return Response(
+                    {"error":"Invalide email address"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
             user = serializer.save()
             verification_pin = str(random.randint(1000, 9999))  
             print(f"[DEBUG] Generated PIN: {verification_pin}")  
