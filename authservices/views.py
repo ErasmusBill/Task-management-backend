@@ -40,7 +40,7 @@ class UserCreate(APIView):
             verification_result = verify_email(email)
             if not verification_result.get("valid"):
                 return Response(
-                    {"error":"Invalide email address"},
+                    {"error":"Invalid email address"},
                     status=status.HTTP_400_BAD_REQUEST
                 )
                 
